@@ -1,0 +1,109 @@
+- hosts: localhost
+  become: true
+  tasks:
+
+  - name: Adicionar entrada da chave pública no /root/.ssh/authorized_keys (Gabriel)
+    authorized_key:
+      user: root
+      state: present
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCxZ6W+iZn1dlWBBxLI3ZHup8LRGk4YpnynlG8Fm4oLdM/2fWKupyl8SJDity0m13AVQBMgpR2k/BA1HLFnWjPpxsjsA03ORTVFG3zGN8Yqb0LRuPfpXmQTQtVtGkN7FD4JKyzFeY+G4J0K3mVjOO2F8pGLvrota6q0/8fNfMsHt0uDZpC9c34qM6Xq72ZChJhnq4JY0QT6fzu2BmVnjDz4eBDlrsbtzdgkNF+z1jLdd4xSYgqFhUIrhU8Bsf6vGQMR0CRFh8huKaDCb4/y2F0NmIX0Y5ycwNfOHwvUoIYJMgv0bWv8Ewfg1MsEQ2MxN67H/4/zmMjo9jM7c40R7nmFwhm4pMMCpH8R7DoLAm4g1cKt80GXaef+7OBuluVcV6qOzaIMhBhOxjZomBgw/fjnUSjWrwJEHXNsAE8/gQLaM6OyMVl0L53FL1f8CuhQC618yge9DhM2yDw7IBxxteyA6Mp1GNPSx0HFFqisEZD0q7ZxW3PQMaTqM3Gdf+ONTP1tGbEirPn3YB3erqaYwirRNERcOpJqh/h9ahi8A9HLmSgOB0JGwKPS39ZBDU4OplIWhHY4QT6orzbrO/IkNXv7DxKQjt9N/kytVpP7MNgB6Mrepi4FDA2OUNKYCZ31c29SFOAUWjjd6K5r4W3JTbJtxVjME4/ifd6oQQHFdNIl2w== gabriel.souza@sj-ctic-29736"
+    when: ansible_os_family == 'Debian'
+
+  - name: Desabilita acesso ssh com senha
+    lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PasswordAuthentication'
+      insertafter: '^#PasswordAuthentication'
+      line: 'PasswordAuthentication no'
+    notify: restart_sshd
+
+- name: Mantem o estado do arquivo /lib/systemd/system/apagaAluno.service - Linux
+  copy:
+    src: apagaAluno.service
+    dest: /lib/systemd/system/apagaAluno.service
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_os_family == 'Debian'
+
+- name: Aplica o daemon-reload e o enable no servico apagaAluno - Linux
+  systemd:
+    enabled: yes
+    daemon_reload: yes
+    name: apagaAluno
+  when: ansible_os_family == 'Debian'
+
+##################### Inicio adiciona arquitetura i386
+
+- name: Check if i386 is enabled
+  shell: dpkg --print-foreign-architectures | grep i386
+  register: result_i386_check
+  changed_when: result_i386_check.rc == 1
+  failed_when: result_i386_check.rc > 1
+  when: ansible_os_family == 'Debian'
+
+- name: Enable i386 architecture
+  command: dpkg --add-architecture i386
+  when: ansible_os_family == 'Debian' and result_i386_check.rc == 1
+
+- name: Ensure apt cache is up to date
+  apt: update_cache=yes
+  when: ansible_os_family == 'Debian' and result_i386_check.rc == 1
+
+##################### Fim adiciona arquitetura i386
+
+##################### Inicio configuracao interfaces
+- name: Mantem o estado do arquivo /etc/network/interfaces.d/eth0 - Linux
+  copy:
+    content: |
+      auto eth0
+      iface eth0 inet dhcp
+    dest: /etc/network/interfaces.d/eth0
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_os_family == 'Debian'
+##################### Fim configuracao interfaces
+
+
+##################### Cria e aplica SWAP
+
+- name: Create swap file
+  command: fallocate -l 4GB /swapfile
+  args:
+    creates: /swapfile
+  when: ( ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1 )
+
+- name: Change swap file permissions
+  file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: 0600
+  when: ( ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1 )
+
+- name: Check swap file type
+  command: file /swapfile
+  register: swapfile
+  when: ( ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1 )
+
+- name: Make swap file
+  command: "mkswap /swapfile"
+  when: ( ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1 and swapfile.stdout.find('swap file') == -1 )
+
+- name: Write swap entry in fstab
+  mount:
+    name: none
+    src: /swapfile
+    fstype: swap
+    opts: sw
+    passno: 0
+    dump: 0
+    state: present
+  when: ( ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1 )
+
+- name: Mount swap
+  command: "swapon /swapfile"
+  when: (ansible_distribution == 'Debian' and ansible_swaptotal_mb < 1)
+
+##################### Fim e aplica SWAP
