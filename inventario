@@ -1,0 +1,13 @@
+[cgp_lin]
+vm-linux ansible_host=191.36.8.110
+
+[cgp_win]
+vm-windows ansible_host=191.36.8.118
+
+[windows:children]
+cgp_win
+
+[windows:vars]
+ansible_user=ctic
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore

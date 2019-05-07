@@ -1,0 +1,110 @@
+- hosts: cgp_win
+  vars_files:
+    - var_crip_key.yaml
+  tasks:
+
+  #  Criando usuario e definindo senha
+  - name: Cria o usuário setic e coloca no grupo Administratores
+    win_user:
+      name: setic
+      password: "{{ setic_password }}"
+      update_password: on_create
+      state: present
+      groups:
+        - Administradores
+    when: ansible_os_family == 'Windows'
+
+  - name: Remove o usuário ctic2
+    win_user:
+      name: ctic2
+      state: absent
+
+  # Instalando e removendo programas via chocolatey e cria atalho
+  - name: Instala programas via chocolatey
+    win_chocolatey: name={{ item }} # state=latest timeout=9000
+    with_items:
+    - googlechrome
+    - jre8
+    - firefox
+    - librecad
+#   - spotify
+    when: ansible_os_family == 'Windows'
+
+  - name: Instalar o microsoftsecurityessentials - Windows 7
+    win_chocolatey:
+      name: microsoftsecurityessentials
+    when: (ansible_os_family == 'Windows' and ansible_os_name == 'Microsoft Windows 7 Professional')
+
+  - name: Instalar o skype
+    win_chocolatey:
+      name: skype
+      version: '8.43.0.56'
+    when: ansible_os_family == 'Windows'
+
+  - name: Cria o atalho do LibreCad 
+    win_shortcut:
+      src: C:\Program Files (x86)\LibreCAD\LibreCAD.exe
+      dest: C:\Users\Public\Desktop\LibreCAD.lnk
+      icon: C:\Program Files (x86)\LibreCAD\LibreCAD.exe,0
+    when: ansible_os_family == 'Windows'
+
+  # Criando pasta
+  - name: Cria a pasta C:\instaladores\ 
+    win_file:
+      path: C:\instaladores\
+      state: directory
+    when: ansible_os_family == 'Windows'
+
+  # Instalar programa .exe .msi com senha para Download
+  - name: Baixar o instalador do Bricscad
+    win_get_url:
+      url: 'https://discovirtual.ifsc.edu.br/remote.php/webdav/SJE/CTIC/BricsCAD-V18.2.20-1-pt_BR(x64).msi'
+      dest: 'C:\users\BricsCAD-V18.2.20-1-pt_BR(x64).msi'
+      force: no
+      url_username: "{{ url_username }}"
+      url_password: "{{ url_password }}"
+      timeout: 120
+    when: ansible_os_family == 'Windows'
+
+  - name: Baixar e instalar o BricsCAD
+    win_package:
+      path: 'C:\users\BricsCAD-V18.2.20-1-pt_BR(x64).msi'
+      arguments: 'BRXLICENSESERVER="dko" SHOWRELEASENOTES=""'
+      product_id: '{0A1EBB09-ADAB-4E6B-9185-54D12E8FBE56}'
+      state: present
+    when: ansible_os_family == 'Windows'
+
+  # Agendamento de tarefas no Windows e alteração do plano de energia
+  - name: Tarefa para desligar os computadores as 23h
+    win_scheduled_task:
+      name: desliga
+      description: Desligar as 23h
+      actions:
+      - path: shutdown.exe
+        arguments: -s -f -t 0
+      triggers:
+      - type: daily
+        start_boundary: '23:00:00'
+      username: SYSTEM
+      state: present
+      enabled: yes
+    when: ansible_os_family == 'Windows'
+
+  - name: Altera plano de energia para alto desempenho (não hiberna)
+    win_power_plan:
+      name: alto desempenho
+    when: ansible_os_family == 'Windows'
+
+
+  # Editando o Regedit e setando timezone
+  - name: Configura servidor NTP para o Windows 1
+    win_regedit:
+      path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\DateTime\Servers
+      name: 1
+      data: gps.ntp.br
+    when: ansible_os_family == 'Windows'
+
+  - name: Setar timezone no Windows
+    win_timezone:
+      timezone: E. South America Standard Time
+    when: ansible_os_family == 'Windows'

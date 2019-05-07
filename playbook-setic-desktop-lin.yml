@@ -1,0 +1,83 @@
+- hosts: cgp_lin
+  become: true
+  become_method: su
+  tasks:
+
+  # Criando usuario e definindo senha
+  - name: Cria usuário aluno com a senha aluno e adicionar ao grupo sudo
+    user:
+      name: aluno
+      groups: sudo
+      password: $6$B5dpvoG43l67q0sx$r0LDKV2TgNItf/kYx/76l89ZN4LhP/ksYIxp.SSVGttHoSZXLSoB6Hkg2A6y7M7aFJ8zEuauf5kS/yA/P61kN1
+    when: ansible_os_family == 'Debian'
+  
+  # Adicionando chave compartilhada
+  - name: Adicionar entrada da chave pública no /root/.ssh/authorized_keys (Gabriel)
+    authorized_key:
+      user: root
+      state: present
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCxZ6W+iZn1dlWBBxLI3ZHup8LRGk4YpnynlG8Fm4oLdM/2fWKupyl8SJDity0m13AVQBMgpR2k/BA1HLFnWjPpxsjsA03ORTVFG3zGN8Yqb0LRuPfpXmQTQtVtGkN7FD4JKyzFeY+G4J0K3mVjOO2F8pGLvrota6q0/8fNfMsHt0uDZpC9c34qM6Xq72ZChJhnq4JY0QT6fzu2BmVnjDz4eBDlrsbtzdgkNF+z1jLdd4xSYgqFhUIrhU8Bsf6vGQMR0CRFh8huKaDCb4/y2F0NmIX0Y5ycwNfOHwvUoIYJMgv0bWv8Ewfg1MsEQ2MxN67H/4/zmMjo9jM7c40R7nmFwhm4pMMCpH8R7DoLAm4g1cKt80GXaef+7OBuluVcV6qOzaIMhBhOxjZomBgw/fjnUSjWrwJEHXNsAE8/gQLaM6OyMVl0L53FL1f8CuhQC618yge9DhM2yDw7IBxxteyA6Mp1GNPSx0HFFqisEZD0q7ZxW3PQMaTqM3Gdf+ONTP1tGbEirPn3YB3erqaYwirRNERcOpJqh/h9ahi8A9HLmSgOB0JGwKPS39ZBDU4OplIWhHY4QT6orzbrO/IkNXv7DxKQjt9N/kytVpP7MNgB6Mrepi4FDA2OUNKYCZ31c29SFOAUWjjd6K5r4W3JTbJtxVjME4/ifd6oQQHFdNIl2w== gabriel.souza@sj-ctic-29736"
+    when: ansible_os_family == 'Debian'
+
+  - name: Adicionar entrada da chave pública no /home/aluno/.ssh/authorized_keys (Gabriel)
+    authorized_key:
+      user: aluno
+      state: present
+      key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCxZ6W+iZn1dlWBBxLI3ZHup8LRGk4YpnynlG8Fm4oLdM/2fWKupyl8SJDity0m13AVQBMgpR2k/BA1HLFnWjPpxsjsA03ORTVFG3zGN8Yqb0LRuPfpXmQTQtVtGkN7FD4JKyzFeY+G4J0K3mVjOO2F8pGLvrota6q0/8fNfMsHt0uDZpC9c34qM6Xq72ZChJhnq4JY0QT6fzu2BmVnjDz4eBDlrsbtzdgkNF+z1jLdd4xSYgqFhUIrhU8Bsf6vGQMR0CRFh8huKaDCb4/y2F0NmIX0Y5ycwNfOHwvUoIYJMgv0bWv8Ewfg1MsEQ2MxN67H/4/zmMjo9jM7c40R7nmFwhm4pMMCpH8R7DoLAm4g1cKt80GXaef+7OBuluVcV6qOzaIMhBhOxjZomBgw/fjnUSjWrwJEHXNsAE8/gQLaM6OyMVl0L53FL1f8CuhQC618yge9DhM2yDw7IBxxteyA6Mp1GNPSx0HFFqisEZD0q7ZxW3PQMaTqM3Gdf+ONTP1tGbEirPn3YB3erqaYwirRNERcOpJqh/h9ahi8A9HLmSgOB0JGwKPS39ZBDU4OplIWhHY4QT6orzbrO/IkNXv7DxKQjt9N/kytVpP7MNgB6Mrepi4FDA2OUNKYCZ31c29SFOAUWjjd6K5r4W3JTbJtxVjME4/ifd6oQQHFdNIl2w== gabriel.souza@sj-ctic-29736"
+    when: ansible_os_family == 'Debian'
+
+  # Instalando e removendo programas do repositório
+  - name: Instalar pacotes do repositório comum
+    apt: name={{ packages }} state=latest
+    vars:
+      packages:
+      - kolourpaint4
+      - icedtea-netx 
+      - openjdk-8-doc
+      - openjdk-8-jdk
+      - openjdk-8-jre
+      - apt-transport-https
+
+  - name: Remover programas  - Linux
+    apt: name={{ packages }} state=absent
+    vars:
+      packages:
+      - transmission
+      - transmission-common
+    when: ansible_os_family == 'Debian'
+
+  # Instalando programas .deb
+  - name: Instala o Google Chrome
+    apt:
+      deb: https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+
+  # Instalando programa do repositório não oficial, adicionando repositório e chave (Spotify)
+  - name: Adicionar a chave para o Spotify
+    apt_key:
+      keyserver: keyserver.ubuntu.com
+      id: A87FF9DF48BF1C90
+    when: ansible_os_family == 'Debian'
+
+  - name: Adicionar repositório Spotify
+    apt_repository:
+      repo: deb http://repository.spotify.com stable non-free
+    when: ansible_os_family == 'Debian'
+
+  - name: Instalar os pacotes para o Spotify
+    apt: 
+      name: spotify-client 
+      state: latest
+    when: ansible_os_family == 'Debian'
+
+  # Definindo versao do java e javac padroes
+  - name: Definir versão java padrão - Linux
+    alternatives:
+      name: java
+      path: /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java
+    when: ansible_distribution == 'Debian'
+
+  - name: Definir versão javac padrão - Linux
+    alternatives:
+      name: javac
+      path: /usr/lib/jvm/java-8-openjdk-amd64/bin/javac
+    when: ansible_distribution == 'Debian'
